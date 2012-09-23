@@ -9,11 +9,11 @@ public class Mass {
 	float angle;
 	float mass;
 	float slide; //radial acceleration
-	float tilt; //for effect
+	float pitch, roll; //for effect not accurate inertia
 	float baring; //set to PI for non radials
 	float forcetx; //for rolling
 	
-	void updatet(float torque) {
+	void updatet(float torque) { //calculate torque update
 		float inertia = mass * radius * radius;
 		float theta_acc = torque / inertia;
 		updated = System.currentTimeMillis() - updated;
@@ -24,19 +24,23 @@ public class Mass {
 		slide = frequency * frequency * radius;
 	}
 	
-	void updatep(float forcet, float forcer) {
-		updatet((forcet + forcetx) * radius);
+	void updatep(float forcet, float forcer) { //apply force update
+		//tangent and radial
+		updatet((roll = forcet + forcetx) * radius);
 		float s = (float)Math.sin(baring);
 		float c = (float)Math.cos(baring);
 		float rad = forcer / mass;
 		rad += slide;
-		tilt = rad * s;
-		forcetx = tilt * c;
+		float pitcht = rad * s;
+		forcetx = rad * s * c;
 		rad *= c;
 		radius += rad * time;
+		roll = -(roll * c - pitcht * s);
+		pitch = -(pitcht * c - roll * s);
 	}
 	
 	void updatea(float forcens, float forceew) {
+		//apply absolute force directions
 		float s = (float)Math.sin(angle);
 		float c = (float)Math.cos(angle);
 		updatep(-forceew * c - forcens * s, forcens * c - forceew * s);
@@ -50,10 +54,21 @@ public class Mass {
 		return (float)(radius * Math.sin(angle));
 	}
 	
+	float absYaw() {
+		return angle + baring;
+	}
+	
 	void update(float force) {
+		//update using drive force
 		float bearing = angle + baring;
 		float s = (float)Math.sin(bearing);
 		float c = (float)Math.cos(bearing);
 		updatea(force * c - force * s, -force * s - force * c);
+	}
+	
+	void setPos(float ns, float ew, float absYaw) {
+		radius = (float)Math.sqrt(ns * ns + ew * ew);
+		angle = (float)Math.atan2(ns, ew);
+		baring = absYaw - angle;
 	}
 }
