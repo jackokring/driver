@@ -32,10 +32,16 @@ public class Mass {
 		updatet(roll * c * radius);
 		float rad = (forcer + forcerx + slide) / mass;
 		//wheel rolling effect of non lateral
+		float r1 = radius;
+		float f1 = frequency * r1;
 		radius += rad * c * time * time;
+		//cori
+		r1 /= radius;
+		frequency *= r1 * r1;
+		f1 = (frequency * radius - f1) / (mass * time);
 		roll = -(roll * c - rad * s);
 		pitch = -(rad * c - roll * s);
-		forcetx = rad * s * c;
+		forcetx = rad * s * c + f1;
 		forcerx = roll * s * c;
 	}
 	
