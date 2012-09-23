@@ -11,7 +11,7 @@ public class Mass {
 	float slide; //radial acceleration
 	float pitch, roll; //for effect not accurate inertia
 	float baring; //set to PI for non radials
-	float forcetx; //for rolling
+	float forcetx, forcerx; //for rolling wheels
 	
 	void updatet(float torque) { //calculate torque update
 		float inertia = mass * radius * radius;
@@ -26,13 +26,16 @@ public class Mass {
 	
 	void updatep(float forcet, float forcer) { //apply force update
 		//tangent and radial
-		updatet((roll = forcet + forcetx) * radius);
+		roll = forcet + forcetx;
 		float s = (float)Math.sin(baring);
 		float c = (float)Math.cos(baring);
-		float rad = forcer / mass;
-		rad += slide;
+		roll *= s;
+		updatet(roll * radius);
+		float rad = (forcer + forcerx + slide) / mass;
 		float pitcht = rad * s;
-		forcetx = rad * s * c;
+		//wheel rolling effect of non lateral
+		forcetx = pitcht * c;
+		forcerx = roll * c;
 		rad *= c;
 		radius += rad * time * time;
 		roll = -(roll * c - pitcht * s);
