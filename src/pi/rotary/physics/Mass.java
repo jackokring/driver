@@ -34,7 +34,7 @@ public class Mass {
 		float pitcht = rad * s;
 		forcetx = rad * s * c;
 		rad *= c;
-		radius += rad * time;
+		radius += rad * time * time;
 		roll = -(roll * c - pitcht * s);
 		pitch = -(pitcht * c - roll * s);
 	}
