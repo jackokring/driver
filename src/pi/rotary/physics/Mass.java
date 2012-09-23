@@ -70,8 +70,10 @@ public class Mass {
 	
 	public void update(float force, float turn) {
 		//update using drive force
+		//the inputs are absolute proportional
+		//a digi pad adapter would be useful
 		float bearing = angle + baring;
-		if(Math.abs(pitch) > pitchLim) {
+		if((pitch = Math.abs(pitch)) > pitchLim) {
 			force *= slip / pitch;//wheel spin and lock
 		}
 		float s = (float)Math.sin(bearing);
