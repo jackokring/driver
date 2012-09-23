@@ -10,7 +10,10 @@ public class Mass {
 	float mass;
 	float slide; //radial acceleration
 	float pitch, roll; //for effect not accurate inertia
-	float baring; //set to PI for non radials
+	float pitchLim, rollLim; //limits before onset of slip
+	float slip = (float) 1.0; //traction
+	float squirrel; //side slip or squirrel
+	float baring; //set to PI for non radials (direction)
 	float forcetx, forcerx; //for rolling wheels
 	
 	void updatet(float torque) { //calculate torque update
@@ -31,7 +34,6 @@ public class Mass {
 		float c = (float)Math.cos(baring);
 		updatet(roll * c * radius);
 		float rad = (forcer + forcerx + slide) / mass;
-		//wheel rolling effect of non lateral
 		float r1 = radius;
 		float f1 = frequency * r1;
 		radius += rad * c * time * time;
@@ -39,8 +41,10 @@ public class Mass {
 		r1 /= radius;
 		frequency *= r1 * r1;
 		f1 = (frequency * radius - f1) / (mass * time);
+		//body tilts
 		roll = -(roll * c - rad * s);
 		pitch = -(rad * c - roll * s);
+		//wheel rolling effect of non lateral
 		forcetx = rad * s * c + f1;
 		forcerx = roll * s * c;
 	}
@@ -52,27 +56,35 @@ public class Mass {
 		updatep(-forceew * c - forcens * s, forcens * c - forceew * s);
 	}
 	
-	float posns() {
+	public float posns() {
 		return (float)(radius * Math.cos(angle));
 	}
 	
-	float posew() {
+	public float posew() {
 		return (float)(radius * Math.sin(angle));
 	}
 	
-	float absYaw() {
+	public float absYaw() {
 		return angle + baring;
 	}
 	
-	void update(float force) {
+	public void update(float force, float turn) {
 		//update using drive force
 		float bearing = angle + baring;
+		if(Math.abs(pitch) > pitchLim) {
+			force *= slip / pitch;//wheel spin and lock
+		}
 		float s = (float)Math.sin(bearing);
 		float c = (float)Math.cos(bearing);
-		updatea(force * c - force * s, -force * s - force * c);
+		updatea(force * c, -force * s);
+		baring += turn * time;
+		//skids...
+		if(Math.abs(roll) > rollLim) {
+			baring += roll * squirrel * turn * time;//squirrel 
+		}
 	}
 	
-	void setPos(float ns, float ew, float absYaw) {
+	public void setPos(float ns, float ew, float absYaw) {
 		radius = (float)Math.sqrt(ns * ns + ew * ew);
 		angle = (float)Math.atan2(ns, ew);
 		baring = absYaw - angle;
