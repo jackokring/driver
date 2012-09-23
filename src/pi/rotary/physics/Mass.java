@@ -29,17 +29,14 @@ public class Mass {
 		roll = forcet + forcetx;
 		float s = (float)Math.sin(baring);
 		float c = (float)Math.cos(baring);
-		roll *= s;
-		updatet(roll * radius);
+		updatet(roll * c * radius);
 		float rad = (forcer + forcerx + slide) / mass;
-		float pitcht = rad * s;
 		//wheel rolling effect of non lateral
-		forcetx = pitcht * c;
-		forcerx = roll * c;
-		rad *= c;
-		radius += rad * time * time;
-		roll = -(roll * c - pitcht * s);
-		pitch = -(pitcht * c - roll * s);
+		radius += rad * c * time * time;
+		roll = -(roll * c - rad * s);
+		pitch = -(rad * c - roll * s);
+		forcetx = rad * s * c;
+		forcerx = roll * s * c;
 	}
 	
 	void updatea(float forcens, float forceew) {
