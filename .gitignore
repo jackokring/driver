@@ -8,3 +8,6 @@
 # Eclipse Files #
 .project
 .classpath
+
+# APK files #
+*.apk
