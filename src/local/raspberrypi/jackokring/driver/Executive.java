@@ -1,5 +1,5 @@
 package local.raspberrypi.jackokring.driver;
 
-public class Executive extends Driver {
+public class Executive extends Director {
 
 }

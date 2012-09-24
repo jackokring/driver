@@ -1,5 +1,5 @@
 package local.raspberrypi.jackokring.driver;
 
-public class Studio extends Mass {
+public class Studio extends Script {
 
 }

@@ -1,5 +1,5 @@
 package local.raspberrypi.jackokring.driver;
 
-public class Movie extends Car {
+public class Movie extends View {
 
 }
