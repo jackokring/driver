@@ -2,6 +2,8 @@ package local.raspberrypi.jackokring.driver;
 
 public class Model extends Zero {
 	
+	//needs a redo with master spin....TODO
+	
 	float radius;
 	float time;
 	float frequency; //angular velocity
