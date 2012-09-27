@@ -6,7 +6,7 @@ public class View extends Zero implements GLEventListener {
 	
 	Model model;
 	
-	View(Model m) {
+	public View(Model m) {
 		model = m;
 	}
 

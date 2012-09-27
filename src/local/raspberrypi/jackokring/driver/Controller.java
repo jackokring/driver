@@ -11,7 +11,7 @@ public class Controller extends Zero implements Runnable {
 	static IOMux io;
 	static GLWindow window;
 	
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
 		io = new IOMux();
 		GLProfile glp = GLProfile.getDefault();
         GLCapabilities caps = new GLCapabilities(glp);
@@ -20,6 +20,7 @@ public class Controller extends Zero implements Runnable {
         window.setSize(300, 300);
         window.setVisible(true);
         window.setTitle(Thread.currentThread().getName());
+        Thread.sleep(5000);
 
         window.addWindowListener(new WindowAdapter() {
             public void windowDestroyNotify(WindowEvent arg0) {
