@@ -1,98 +1,97 @@
 package local.raspberrypi.jackokring.driver;
 
+import local.raspberrypi.jackokring.util.*;
+
 public class Model extends Zero {
 	
-	//needs a redo with master spin....TODO
+	float invMass = 1;
+	float x = 0;
+	float y = 0;
 	
-	float radius;
-	float time;
-	float frequency; //angular velocity
-	float radial; //radial velocity
-	long updated; //last updated
-	float angle;
-	float mass;
-	float slide; //radial acceleration
-	float pitch, roll; //for effect not accurate inertia
-	float pitchLim, rollLim; //limits before onset of slip
-	float slip = (float) 1.0; //traction
-	float squirrel; //side slip or squirrel
-	float baring; //set to PI for non radials (direction)
-	float forcetx, forcerx; //for rolling wheels
+	Trig pointing = new Trig();//direction and wheel force
+	Trig sliding = new Trig();//velocity
+	Trig forces = new Trig();//body forces
+	Trig sheer = new Trig();//perp
+	Trig along = new Trig();//para
 	
-	void updatet(float torque) { //calculate torque update
-		float inertia = mass * radius * radius;
-		float theta_acc = torque / inertia;
-		updated = System.currentTimeMillis() - updated;
-		time = (float)(updated / 1000.0);
-		frequency += theta_acc * time;
-		angle += frequency * time;
-		angle = (float)Math.IEEEremainder(angle, 2 * Math.PI);
-		slide = frequency * frequency * radius;
-	}
+	static Trig wind = new Trig();
+	static Trig calcTemp = new Trig();
 	
-	void updatep(float forcet, float forcer) { //apply force update
-		//tangent and radial
-		roll = forcet + forcetx;
-		float s = (float)Math.sin(baring);
-		float c = (float)Math.cos(baring);
-		updatet(roll * c * radius);
-		float rad = (forcer + forcerx + slide) / mass;
-		float r1 = radius;
-		float f1 = frequency * r1;
-		radial += rad * c * time;
-		radius += radial * time;
-		//cori
-		r1 /= radius;
-		frequency *= r1 * r1;
-		f1 = (frequency * radius - f1) / (mass * time);
-		//body tilts
-		roll = -(roll * c - rad * s);
-		pitch = -(rad * c - roll * s);
-		//wheel rolling effect of non lateral
-		forcetx = rad * s * c + f1;
-		forcerx = roll * s * c;
-	}
+	long updated = System.currentTimeMillis();
+	static long timeCache;
+	static float angleCache;
+	final static float halfp = (float) (Math.PI / 2);
 	
-	void updatea(float forcens, float forceew) {
-		//apply absolute force directions
-		float s = (float)Math.sin(angle);
-		float c = (float)Math.cos(angle);
-		updatep(-forceew * c - forcens * s, forcens * c - forceew * s);
-	}
+	float friction = 100;
+	float squirrel = 5;
+	float slip = (float) 0.5;
+	static float bounce = (float) 0.00001;
 	
-	public float posns() {
-		return (float)(radius * Math.cos(angle));
-	}
+	float drag = (float) 0.1;
 	
-	public float posew() {
-		return (float)(radius * Math.sin(angle));
-	}
-	
-	public float absYaw() {
-		return angle + baring;
-	}
-	
-	public void update(float force, float turn) {
-		//update using drive force
-		//the inputs are absolute proportional
-		//a digi pad adapter would be useful
-		float bearing = angle + baring;
-		if((pitch = Math.abs(pitch)) > pitchLim) {
-			force *= slip / pitch;//wheel spin and lock
+	public void update(float acc, float dir) {
+		timeCache = updated;
+		updated = System.currentTimeMillis();
+		if(updated == timeCache) return;
+		timeCache = updated - timeCache;//got millis
+		pointing.setRadius(acc * timeCache * invMass);//wheel drive
+		dir += (Math.random() * 2 - 1) * bounce;//road jiggle
+		along.setAngle(pointing.angle);
+		sheer.setAngle((float) (pointing.angle + halfp));
+		addImpulses();
+		//do mass
+		forces.setRadius(forces.radius * invMass);
+		if(Math.abs(pointing.radius) > friction) {
+			pointing.setRadius(pointing.radius * slip);
+			inSkid();
 		}
-		float s = (float)Math.sin(bearing);
-		float c = (float)Math.cos(bearing);
-		updatea(force * c, -force * s);
-		baring += turn * time;
-		//skids...
-		if(Math.abs(roll) > rollLim) {
-			baring += roll * squirrel * turn * time;//squirrel 
+		forces.add(pointing);//wheel to body
+		//sheer
+		sheer.setDot(forces);
+		//acceleration
+		along.setDot(forces);
+		//steer
+		calcTemp.setAngle(pointing.angle);
+		calcTemp.setDot(sliding);
+		if(Math.abs(sheer.radius) > friction) {
+			dir *= squirrel;
+			sheer.setRadius(sheer.radius * slip);
+			sliding.add(sheer);
+			inSkid();
+		} else {
+			sliding.setFrom(calcTemp);//no skid wheels
 		}
+		calcTemp.twist(-halfp);
+		float r, v;
+		r = dir * (v = calcTemp.radius);//angular velocity
+		pointing.twist(timeCache * r);
+		r *= v;
+		calcTemp.setRadius(r);
+		forces.setFrom(calcTemp);//tilt
+		//move forward
+		sliding.add(along);
+		//position
+		x += sliding.x;
+		y += sliding.y;
 	}
 	
-	public void setPos(float ns, float ew, float absYaw) {
-		radius = (float)Math.sqrt(ns * ns + ew * ew);
-		angle = (float)Math.atan2(ns, ew);
-		baring = absYaw - angle;
+	void addCoriolis() {
+		
+	}
+		
+	void addWind() {	
+		calcTemp.setFrom(wind);
+		calcTemp.add(sliding);
+		calcTemp.setRadius(-calcTemp.radius * calcTemp.radius * drag);
+		forces.add(calcTemp);
+	}
+	
+	public void addImpulses() {
+		addWind();
+		addCoriolis();
+	}
+	
+	public void inSkid() {
+		
 	}
 }
