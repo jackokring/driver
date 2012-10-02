@@ -15,7 +15,7 @@ public class Model extends Zero {
 	public static Trig calcTemp = new Trig();
 	public static float rotary = 1;
 	float lastRotary = rotary;
-	public Tile floor = new Tile();
+	public static Tile floor = new Tile();
 	public static float gravity = 1;
 	
 	//internals and constants
