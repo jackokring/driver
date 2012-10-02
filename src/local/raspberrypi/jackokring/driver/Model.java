@@ -13,8 +13,10 @@ public class Model extends Zero {
 	//the environment settings
 	public static Trig wind = new Trig();
 	public static Trig calcTemp = new Trig();
-	public static float rotary = (float) 1.0;
+	public static float rotary = 1;
 	float lastRotary = rotary;
+	public Tile floor = new Tile();
+	public static float gravity = 1;
 	
 	//internals and constants
 	long updated = System.currentTimeMillis();
@@ -25,6 +27,9 @@ public class Model extends Zero {
 	float torq = 0;//wheel torque
 	float dir = 0;//internal steer
 	float direct = 0;//steer
+	float z;//get x, y from location. Have matrix loose coupled for draw
+	float txs, tys, tzs, txc, tyc, tzc;//for sin cos rotation on axis
+	//twist tilts into gravity increasing axis
 	
 	//car properties
 	public float invMass = 1;
@@ -53,7 +58,16 @@ public class Model extends Zero {
 		float drive = time * invMass;
 		pointing.setRadius(torq * drive);//wheel drive
 		dir = (float) (direct + (Math.random() * 2 - 1) * bounce);//road jiggle
-		addImpulses();
+		//mapping
+		z = floor.getZ(this);
+		txs = Tile.txs;
+		txc = Tile.txc;
+		tys = Tile.tys;
+		tyc = Tile.tyc;
+		//where
+		addWind();
+		addCoriolis();
+		addGravity();
 		//do mass
 		forces.setRadius(forces.radius * drive);
 		revWheel = invRadWheel;
@@ -73,15 +87,38 @@ public class Model extends Zero {
 		//move forward
 		sliding.add(pointing);
 		sliding.add(forces);
+		pointing.setRadius(1);
+		tzs = pointing.x;
+		tzc = pointing.y;
 		//position
-		location.add(sliding);
+		updatePosition();
 	}
 	
-	public void tilt(float centra) {
+	protected void updatePosition() {
+		calcTemp.setAngle(0);
+		calcTemp.setDot(sliding);
+		calcTemp.setRadius(calcTemp.radius * txc);
+		location.add(calcTemp);
+		calcTemp.setAngle(halfp);
+		calcTemp.setDot(sliding);
+		calcTemp.setRadius(calcTemp.radius * tyc);
+		location.add(calcTemp);
+	}
+	
+	protected void addGravity() {
+		calcTemp.setAngle(0);
+		calcTemp.setRadius(gravity * txs);
+		forces.add(calcTemp);
+		calcTemp.setAngle(halfp);
+		calcTemp.setRadius(gravity * tys);
+		forces.add(calcTemp);
+	}
+	
+	protected void tilt(float centra) {
 		calcTemp.setRadius(centra);
 	}
 	
-	public void gripSlip() {
+	protected void gripSlip() {
 		//check wheel spin
 		calcTemp.setFrom(forces);
 		calcTemp.setRadius(-calcTemp.radius);
@@ -99,7 +136,7 @@ public class Model extends Zero {
 		}
 	}
 	
-	void addCoriolis() {
+	protected void addCoriolis() {
 		//calc angular vel into tan
 		calcTemp.setFrom(location);
 		calcTemp.twist(halfp);
@@ -124,19 +161,14 @@ public class Model extends Zero {
 		lastRotary = rotary;
 	}
 		
-	void addWind() {	
+	protected void addWind() {	
 		calcTemp.setFrom(wind);
 		calcTemp.add(sliding);
 		calcTemp.setRadius(-calcTemp.radius * calcTemp.radius * drag);
 		forces.add(calcTemp);
 	}
 	
-	public void addImpulses() {
-		addWind();
-		addCoriolis();
-	}
-	
-	public void inSkid() {
+	protected void inSkid() {
 		
 	}
 }
