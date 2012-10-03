@@ -4,7 +4,7 @@ import javax.media.opengl.*;
 
 import com.jogamp.common.nio.Buffers;
 
-import java.nio.FloatBuffer;
+import java.nio.*;
 
 public class View extends Zero implements GLEventListener {
 	
@@ -25,6 +25,28 @@ public class View extends Zero implements GLEventListener {
     private static int vertShader;
     private static int fragShader;
     static int MVPM_location;
+    
+    public void MVPDo() {
+	 	// Update variables used in animation
+	    double t1 = System.currentTimeMillis();
+	    theta += (t1-t0)*0.005f;
+	    t0 = t1;
+	    s = Math.sin(theta);
+	
+	    float[] model_view_projection;
+	    float[] identity_matrix = {
+	        1.0f, 0.0f, 0.0f, 0.0f,
+	        0.0f, 1.0f, 0.0f, 0.0f,
+	        0.0f, 0.0f, 1.0f, 0.0f,
+	        0.0f, 0.0f, 0.0f, 1.0f,
+	    };
+	    model_view_projection =  translate(identity_matrix,0.0f,0.0f, -0.1f);
+	    model_view_projection =  rotate(model_view_projection,(float)30f*(float)s,1.0f,0.0f,1.0f);
+	
+	    // Send the final projection matrix to the vertex shader by
+	    // using the uniform location id obtained during the init part.
+	    gl.glUniformMatrix4fv(MVPM_location, 1, false, model_view_projection, 0);
+    }
 
     public void init(GLAutoDrawable drawable) {
     	if(gl != null) return;
@@ -68,54 +90,11 @@ public class View extends Zero implements GLEventListener {
     public void reshape(GLAutoDrawable drawable, int x, int y, int w, int h) { }
 
     public void display(GLAutoDrawable drawable) {
-        // Update variables used in animation
-        double t1 = System.currentTimeMillis();
-        theta += (t1-t0)*0.005f;
-        t0 = t1;
-        s = Math.sin(theta);
-
-        // Clear screen
-        gl.glClearColor(1, 0, 1, 0.5f);  // Purple
+        
         gl.glClear(GL2ES2.GL_STENCIL_BUFFER_BIT |
-                   GL2ES2.GL_COLOR_BUFFER_BIT   |
-                   GL2ES2.GL_DEPTH_BUFFER_BIT   );
-
-        /* Change a projection matrix
-         * The matrix multiplications and OpenGL ES2 code below
-         * basically match this OpenGL ES1 code.
-         * note that the model_view_projection matrix gets sent to the vertexShader.
-         *
-         * gl.glLoadIdentity();
-         * gl.glTranslatef(0.0f,0.0f,-0.1f);
-         * gl.glRotatef((float)30f*(float)s,1.0f,0.0f,1.0f);
-         *
-         */
-
-        float[] model_view_projection;
-        float[] identity_matrix = {
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f,
-        };
-        model_view_projection =  translate(identity_matrix,0.0f,0.0f, -0.1f);
-        model_view_projection =  rotate(model_view_projection,(float)30f*(float)s,1.0f,0.0f,1.0f);
-
-        // Send the final projection matrix to the vertex shader by
-        // using the uniform location id obtained during the init part.
-        gl.glUniformMatrix4fv(MVPM_location, 1, false, model_view_projection, 0);
-
-        /*
-         *  Render a triangle:
-         *  The OpenGL ES2 code below basically match this OpenGL code.
-         *
-         *    gl.glBegin(GL_TRIANGLES);                      // Drawing Using Triangles
-         *    gl.glVertex3f( 0.0f, 1.0f, 0.0f);              // Top
-         *    gl.glVertex3f(-1.0f,-1.0f, 0.0f);              // Bottom Left
-         *    gl.glVertex3f( 1.0f,-1.0f, 0.0f);              // Bottom Right
-         *    gl.glEnd();                            // Finished Drawing The Triangle
-         */
-
+                GL2ES2.GL_COLOR_BUFFER_BIT   |
+                GL2ES2.GL_DEPTH_BUFFER_BIT   );
+        MVPDo();
         float[] vertices = {  0.0f,  1.0f, 0.0f, //Top
                              -1.0f, -1.0f, 0.0f, //Bottom Left
                               1.0f, -1.0f, 0.0f  //Bottom Right
@@ -143,8 +122,14 @@ public class View extends Zero implements GLEventListener {
 
         gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 0, fbColors);
         gl.glEnableVertexAttribArray(1);
+        
+        int[] in = { 0, 1, 2 };
+        
+        IntBuffer ib = Buffers.newDirectIntBuffer(in);
+        
+        gl.glDrawElements(GL2ES2.GL_TRIANGLES, 3, GL2ES2.GL_UNSIGNED_INT, ib);
 
-        gl.glDrawArrays(GL2ES2.GL_TRIANGLES, 0, 3); //Draw the vertices as triangle
+        //gl.glDrawArrays(GL2ES2.GL_TRIANGLES, 0, 3); //Draw the vertices as triangle
         
         gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
         gl.glDisableVertexAttribArray(1); // Allow release of vertex color memory		
