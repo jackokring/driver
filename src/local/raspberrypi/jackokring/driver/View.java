@@ -9,11 +9,163 @@ import java.nio.FloatBuffer;
 public class View extends Zero implements GLEventListener {
 	
 	Model model;
+	static GL2ES2 gl;//main context
 	
 	public View(Model m) {
 		model = m;
 	}
+	
+	//fix these TODO
+    private double t0 = System.currentTimeMillis();
+    private double theta;
+    private double s;
 
+    //main shader shares
+    private static int shaderProgram;
+    private static int vertShader;
+    private static int fragShader;
+    static int MVPM_location;
+
+    public void init(GLAutoDrawable drawable) {
+    	if(gl != null) return;
+        gl = drawable.getGL().getGL2ES2();
+
+        System.out.println("Chosen GLCapabilities: " + drawable.getChosenGLCapabilities());
+        System.out.println("INIT GL IS: " + gl.getClass().getName());
+        System.out.println("GL_VENDOR: " + gl.glGetString(GL.GL_VENDOR));
+        System.out.println("GL_RENDERER: " + gl.glGetString(GL.GL_RENDERER));
+        System.out.println("GL_VERSION: " + gl.glGetString(GL.GL_VERSION));
+
+        //Create shaders
+        //OpenGL ES returns a index id to be stored for future reference.
+        vertShader = gl.glCreateShader(GL2ES2.GL_VERTEX_SHADER);
+        fragShader = gl.glCreateShader(GL2ES2.GL_FRAGMENT_SHADER);
+
+        compile(vertexShader, vertShader);
+        compile(fragmentShader, fragShader);
+
+        //Each shaderProgram must have
+        //one vertex shader and one fragment shader.
+        shaderProgram = gl.glCreateProgram();
+        gl.glAttachShader(shaderProgram, vertShader);
+        gl.glAttachShader(shaderProgram, fragShader);
+
+        //Associate attribute ids with the attribute names inside
+        //the vertex shader.
+        gl.glBindAttribLocation(shaderProgram, 0, "attribute_Position");
+        gl.glBindAttribLocation(shaderProgram, 1, "attribute_Color");
+
+        gl.glLinkProgram(shaderProgram);
+
+        //Get a id number to the uniform_Projection matrix
+        //so that we can update it.
+        MVPM_location = gl.glGetUniformLocation(shaderProgram, "uniform_Projection");
+        
+        // Use the shaderProgram that got linked during the init part.
+        gl.glUseProgram(shaderProgram);
+    }
+
+    public void reshape(GLAutoDrawable drawable, int x, int y, int w, int h) { }
+
+    public void display(GLAutoDrawable drawable) {
+        // Update variables used in animation
+        double t1 = System.currentTimeMillis();
+        theta += (t1-t0)*0.005f;
+        t0 = t1;
+        s = Math.sin(theta);
+
+        // Clear screen
+        gl.glClearColor(1, 0, 1, 0.5f);  // Purple
+        gl.glClear(GL2ES2.GL_STENCIL_BUFFER_BIT |
+                   GL2ES2.GL_COLOR_BUFFER_BIT   |
+                   GL2ES2.GL_DEPTH_BUFFER_BIT   );
+
+        /* Change a projection matrix
+         * The matrix multiplications and OpenGL ES2 code below
+         * basically match this OpenGL ES1 code.
+         * note that the model_view_projection matrix gets sent to the vertexShader.
+         *
+         * gl.glLoadIdentity();
+         * gl.glTranslatef(0.0f,0.0f,-0.1f);
+         * gl.glRotatef((float)30f*(float)s,1.0f,0.0f,1.0f);
+         *
+         */
+
+        float[] model_view_projection;
+        float[] identity_matrix = {
+            1.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f,
+        };
+        model_view_projection =  translate(identity_matrix,0.0f,0.0f, -0.1f);
+        model_view_projection =  rotate(model_view_projection,(float)30f*(float)s,1.0f,0.0f,1.0f);
+
+        // Send the final projection matrix to the vertex shader by
+        // using the uniform location id obtained during the init part.
+        gl.glUniformMatrix4fv(MVPM_location, 1, false, model_view_projection, 0);
+
+        /*
+         *  Render a triangle:
+         *  The OpenGL ES2 code below basically match this OpenGL code.
+         *
+         *    gl.glBegin(GL_TRIANGLES);                      // Drawing Using Triangles
+         *    gl.glVertex3f( 0.0f, 1.0f, 0.0f);              // Top
+         *    gl.glVertex3f(-1.0f,-1.0f, 0.0f);              // Bottom Left
+         *    gl.glVertex3f( 1.0f,-1.0f, 0.0f);              // Bottom Right
+         *    gl.glEnd();                            // Finished Drawing The Triangle
+         */
+
+        float[] vertices = {  0.0f,  1.0f, 0.0f, //Top
+                             -1.0f, -1.0f, 0.0f, //Bottom Left
+                              1.0f, -1.0f, 0.0f  //Bottom Right
+                                              };
+
+
+        // Observe that the vertex data passed to glVertexAttribPointer must stay valid
+        // through the OpenGL rendering lifecycle.
+        // Therefore it is mandatory to allocate a NIO Direct buffer that stays pinned in memory
+        // and thus can not get moved by the java garbage collector.
+        // Also we need to keep a reference to the NIO Direct buffer around up until
+        // we call glDisableVertexAttribArray first then will it be safe to garbage collect the memory. 
+        // I will here use the com.jogamp.common.nio.Buffers to quickly wrap the array in a Direct NIO buffer.
+        FloatBuffer fbVertices = Buffers.newDirectFloatBuffer(vertices);
+
+        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 0, fbVertices);
+        gl.glEnableVertexAttribArray(0);
+
+        float[] colors = {    1.0f, 0.0f, 0.0f, 1.0f, //Top color (red)
+                              0.0f, 0.0f, 0.0f, 1.0f, //Bottom Left color (black)
+                              1.0f, 1.0f, 0.0f, 0.9f  //Bottom Right color (yellow) with 10% transparence
+                                                   };
+                                             
+        FloatBuffer fbColors = Buffers.newDirectFloatBuffer(colors);
+
+        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 0, fbColors);
+        gl.glEnableVertexAttribArray(1);
+
+        gl.glDrawArrays(GL2ES2.GL_TRIANGLES, 0, 3); //Draw the vertices as triangle
+        
+        gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
+        gl.glDisableVertexAttribArray(1); // Allow release of vertex color memory		
+        // It is only safe to let the garbage collector collect the vertices and colors 
+        // NIO buffers data after first calling glDisableVertexAttribArray.
+        fbVertices = null;
+        fbColors = null;
+    }
+
+    public void dispose(GLAutoDrawable drawable){
+    	if(gl == null) return;
+        System.out.println("cleanup, remember to release shaders");
+        gl.glUseProgram(0);
+        gl.glDetachShader(shaderProgram, vertShader);
+        gl.glDeleteShader(vertShader);
+        gl.glDetachShader(shaderProgram, fragShader);
+        gl.glDeleteShader(fragShader);
+        gl.glDeleteProgram(shaderProgram);
+        gl = null;
+    }
+    
 	static final String vertexShader =
 	// For GLSL 1 and 1.1 code i highly recommend to not include a 
 	// GLSL ES language #version line, GLSL ES section 3.4
@@ -75,6 +227,29 @@ public class View extends Zero implements GLEventListener {
 	"{ \n" +
 	"  gl_FragColor = varying_Color; \n" +
 	"} ";
+	
+	private void compile(String shader, int id) {
+		//Compile the vertexShader String into a program.
+	    String[] vlines = new String[] { shader };
+	    int[] vlengths = new int[] { vlines[0].length() };
+	    gl.glShaderSource(id, vlines.length, vlines, vlengths, 0);
+	    gl.glCompileShader(id);
+	
+	    //Check compile status.
+	    int[] compiled = new int[1];
+	    gl.glGetShaderiv(id, GL2ES2.GL_COMPILE_STATUS, compiled,0);
+	    if(compiled[0]!=0){System.out.println("Horray! Shader "+id+" compiled");}
+	    else {
+	        int[] logLength = new int[1];
+	        gl.glGetShaderiv(id, GL2ES2.GL_INFO_LOG_LENGTH, logLength, 0);
+	
+	        byte[] log = new byte[logLength[0]];
+	        gl.glGetShaderInfoLog(id, logLength[0], (int[])null, 0, log, 0);
+	
+	        System.err.println("Error compiling shader "+id+": " + new String(log));
+	        System.exit(1);
+	    }
+	}
 
 /* Introducing projection matrix helper functions
  *
@@ -125,211 +300,5 @@ public class View extends Zero implements GLEventListener {
             x * z * (1.0f - c) + y * s, y * z * (1.0f - c) - x * s, z * z * (1.0f - c) + c,     0.0f,
             0.0f, 0.0f, 0.0f, 1.0f };
             return multiply(m, r);
-        }
-
-/* Introducing the GL2ES2 demo
- *
- * How to render a triangle using 424 lines of code using the RAW
- * OpenGL ES 2 API.
- * The Programmable pipeline in OpenGL ES 2 are both fast and flexible
- * yet it do take some extra lines of code to setup.
- *
- */
-    private double t0 = System.currentTimeMillis();
-    private double theta;
-    private double s;
-
-    private int shaderProgram;
-    private int vertShader;
-    private int fragShader;
-    private int ModelViewProjectionMatrix_location;
-
-    public void init(GLAutoDrawable drawable) {
-        GL2ES2 gl = drawable.getGL().getGL2ES2();
-
-        System.err.println("Chosen GLCapabilities: " + drawable.getChosenGLCapabilities());
-        System.err.println("INIT GL IS: " + gl.getClass().getName());
-        System.err.println("GL_VENDOR: " + gl.glGetString(GL.GL_VENDOR));
-        System.err.println("GL_RENDERER: " + gl.glGetString(GL.GL_RENDERER));
-        System.err.println("GL_VERSION: " + gl.glGetString(GL.GL_VERSION));
-
-        //Create shaders
-        //OpenGL ES returns a index id to be stored for future reference.
-        vertShader = gl.glCreateShader(GL2ES2.GL_VERTEX_SHADER);
-        fragShader = gl.glCreateShader(GL2ES2.GL_FRAGMENT_SHADER);
-
-        //Compile the vertexShader String into a program.
-        String[] vlines = new String[] { vertexShader };
-        int[] vlengths = new int[] { vlines[0].length() };
-        gl.glShaderSource(vertShader, vlines.length, vlines, vlengths, 0);
-        gl.glCompileShader(vertShader);
-
-        //Check compile status.
-        int[] compiled = new int[1];
-        gl.glGetShaderiv(vertShader, GL2ES2.GL_COMPILE_STATUS, compiled,0);
-        if(compiled[0]!=0){System.out.println("Horray! vertex shader compiled");}
-        else {
-            int[] logLength = new int[1];
-            gl.glGetShaderiv(vertShader, GL2ES2.GL_INFO_LOG_LENGTH, logLength, 0);
-
-            byte[] log = new byte[logLength[0]];
-            gl.glGetShaderInfoLog(vertShader, logLength[0], (int[])null, 0, log, 0);
-
-            System.err.println("Error compiling the vertex shader: " + new String(log));
-            System.exit(1);
-        }
-
-        //Compile the fragmentShader String into a program.
-        String[] flines = new String[] { fragmentShader };
-        int[] flengths = new int[] { flines[0].length() };
-        gl.glShaderSource(fragShader, flines.length, flines, flengths, 0);
-        gl.glCompileShader(fragShader);
-
-        //Check compile status.
-        gl.glGetShaderiv(fragShader, GL2ES2.GL_COMPILE_STATUS, compiled,0);
-        if(compiled[0]!=0){System.out.println("Horray! fragment shader compiled");}
-        else {
-            int[] logLength = new int[1];
-            gl.glGetShaderiv(fragShader, GL2ES2.GL_INFO_LOG_LENGTH, logLength, 0);
-
-            byte[] log = new byte[logLength[0]];
-            gl.glGetShaderInfoLog(fragShader, logLength[0], (int[])null, 0, log, 0);
-
-            System.err.println("Error compiling the fragment shader: " + new String(log));
-            System.exit(1);
-        }
-
-        //Each shaderProgram must have
-        //one vertex shader and one fragment shader.
-        shaderProgram = gl.glCreateProgram();
-        gl.glAttachShader(shaderProgram, vertShader);
-        gl.glAttachShader(shaderProgram, fragShader);
-
-        //Associate attribute ids with the attribute names inside
-        //the vertex shader.
-        gl.glBindAttribLocation(shaderProgram, 0, "attribute_Position");
-        gl.glBindAttribLocation(shaderProgram, 1, "attribute_Color");
-
-        gl.glLinkProgram(shaderProgram);
-
-        //Get a id number to the uniform_Projection matrix
-        //so that we can update it.
-        ModelViewProjectionMatrix_location = gl.glGetUniformLocation(shaderProgram, "uniform_Projection");
-    }
-
-    public void reshape(GLAutoDrawable drawable, int x, int y, int w, int h) {
-        //System.out.println("Window resized to width=" + w + " height=" + h);
-
-        // Get gl
-        //GL2ES2 gl = drawable.getGL().getGL2ES2();
-
-        // Optional: Set viewport
-        // Render to a square at the centre of the window.
-        //gl.glViewport((w-h)/2,0,h,h);
-    }
-
-    public void display(GLAutoDrawable drawable) {
-        // Update variables used in animation
-        double t1 = System.currentTimeMillis();
-        theta += (t1-t0)*0.005f;
-        t0 = t1;
-        s = Math.sin(theta);
-
-        // Get gl
-        GL2ES2 gl = drawable.getGL().getGL2ES2();
-
-        // Clear screen
-        gl.glClearColor(1, 0, 1, 0.5f);  // Purple
-        gl.glClear(GL2ES2.GL_STENCIL_BUFFER_BIT |
-                   GL2ES2.GL_COLOR_BUFFER_BIT   |
-                   GL2ES2.GL_DEPTH_BUFFER_BIT   );
-
-        // Use the shaderProgram that got linked during the init part.
-        gl.glUseProgram(shaderProgram);
-
-        /* Change a projection matrix
-         * The matrix multiplications and OpenGL ES2 code below
-         * basically match this OpenGL ES1 code.
-         * note that the model_view_projection matrix gets sent to the vertexShader.
-         *
-         * gl.glLoadIdentity();
-         * gl.glTranslatef(0.0f,0.0f,-0.1f);
-         * gl.glRotatef((float)30f*(float)s,1.0f,0.0f,1.0f);
-         *
-         */
-
-        float[] model_view_projection;
-        float[] identity_matrix = {
-            1.0f, 0.0f, 0.0f, 0.0f,
-            0.0f, 1.0f, 0.0f, 0.0f,
-            0.0f, 0.0f, 1.0f, 0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f,
-        };
-        model_view_projection =  translate(identity_matrix,0.0f,0.0f, -0.1f);
-        model_view_projection =  rotate(model_view_projection,(float)30f*(float)s,1.0f,0.0f,1.0f);
-
-        // Send the final projection matrix to the vertex shader by
-        // using the uniform location id obtained during the init part.
-        gl.glUniformMatrix4fv(ModelViewProjectionMatrix_location, 1, false, model_view_projection, 0);
-
-        /*
-         *  Render a triangle:
-         *  The OpenGL ES2 code below basically match this OpenGL code.
-         *
-         *    gl.glBegin(GL_TRIANGLES);                      // Drawing Using Triangles
-         *    gl.glVertex3f( 0.0f, 1.0f, 0.0f);              // Top
-         *    gl.glVertex3f(-1.0f,-1.0f, 0.0f);              // Bottom Left
-         *    gl.glVertex3f( 1.0f,-1.0f, 0.0f);              // Bottom Right
-         *    gl.glEnd();                            // Finished Drawing The Triangle
-         */
-
-        float[] vertices = {  0.0f,  1.0f, 0.0f, //Top
-                             -1.0f, -1.0f, 0.0f, //Bottom Left
-                              1.0f, -1.0f, 0.0f  //Bottom Right
-                                              };
-
-
-        // Observe that the vertex data passed to glVertexAttribPointer must stay valid
-        // through the OpenGL rendering lifecycle.
-        // Therefore it is mandatory to allocate a NIO Direct buffer that stays pinned in memory
-        // and thus can not get moved by the java garbage collector.
-        // Also we need to keep a reference to the NIO Direct buffer around up untill
-        // we call glDisableVertexAttribArray first then will it be safe to garbage collect the memory. 
-        // I will here use the com.jogamp.common.nio.Buffers to quicly wrap the array in a Direct NIO buffer.
-        FloatBuffer fbVertices = Buffers.newDirectFloatBuffer(vertices);
-
-        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 0, fbVertices);
-        gl.glEnableVertexAttribArray(0);
-
-        float[] colors = {    1.0f, 0.0f, 0.0f, 1.0f, //Top color (red)
-                              0.0f, 0.0f, 0.0f, 1.0f, //Bottom Left color (black)
-                              1.0f, 1.0f, 0.0f, 0.9f  //Bottom Right color (yellow) with 10% transparence
-                                                   };
-                                             
-        FloatBuffer fbColors = Buffers.newDirectFloatBuffer(colors);
-
-        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 0, fbColors);
-        gl.glEnableVertexAttribArray(1);
-
-        gl.glDrawArrays(GL2ES2.GL_TRIANGLES, 0, 3); //Draw the vertices as triangle
-        
-        gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
-        gl.glDisableVertexAttribArray(1); // Allow release of vertex color memory		
-        // It is only safe to let the garbage collector collect the vertices and colors 
-        // NIO buffers data after first calling glDisableVertexAttribArray.
-        fbVertices = null;
-        fbColors = null;
-    }
-
-    public void dispose(GLAutoDrawable drawable){
-        System.out.println("cleanup, remember to release shaders");
-        GL2ES2 gl = drawable.getGL().getGL2ES2();
-        gl.glUseProgram(0);
-        gl.glDetachShader(shaderProgram, vertShader);
-        gl.glDeleteShader(vertShader);
-        gl.glDetachShader(shaderProgram, fragShader);
-        gl.glDeleteShader(fragShader);
-        gl.glDeleteProgram(shaderProgram);
-        System.exit(0);
     }
 }

@@ -10,16 +10,20 @@ public class Controller extends Zero implements Runnable {
 
 	View view;
 	static Thread self;
-	static IOMux io;
 	static GLWindow window;
 	static Animator animator;
 	
-	public static void main(String[] args) throws InterruptedException {
-		io = new IOMux();
+	public static Controller init() {
+		return new Controller();
+	}
+	
+	public void running() {
+		//general code thread
+	}
+	
+	public static void main(String[] args) {
 		GLProfile glp = GLProfile.get(GLProfile.GL2ES2);
         GLCapabilities caps = new GLCapabilities(glp);
-    	// We may at this point tweak the caps and request a translucent drawable
-        caps.setBackgroundOpaque(false);
 
         window = GLWindow.create(caps);
         window.setSize(300, 300);
@@ -27,26 +31,30 @@ public class Controller extends Zero implements Runnable {
         window.setTitle(Thread.currentThread().getName());
         window.setUndecorated(false);
         window.setPointerVisible(true);
-
-        window.addWindowListener(new WindowAdapter() {
-            public void windowDestroyNotify(WindowEvent arg0) {
-                System.exit(0);
-            };
-        });
         
         animator = new Animator(window);
         animator.add(window);
         animator.start();
         self = new Thread(init());
         self.start();
-	}
-	
-	public static Controller init() {
-		return new Controller();
+        
+        window.addWindowListener(new WindowAdapter() {
+            public void windowDestroyNotify(WindowEvent arg0) {
+            	animator.stop();
+                self = null;
+            };
+        });
 	}
 	
 	public void run() {
 		view = new View(new Model());
 		window.addGLEventListener(view);
+		while(self != null) {
+			running();
+			Thread.yield();
+		}
+		window.removeGLEventListener(view);
+		window.setVisible(false);
+		System.exit(0);
 	}
 }
