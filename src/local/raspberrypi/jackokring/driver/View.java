@@ -3,7 +3,11 @@ package local.raspberrypi.jackokring.driver;
 import javax.media.opengl.*;
 
 import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.util.PMVMatrix;
+import com.jogamp.opengl.util.texture.Texture;
+import com.jogamp.opengl.util.texture.TextureIO;
 
+import java.io.IOException;
 import java.nio.*;
 
 public class View extends Zero implements GLEventListener {
@@ -26,12 +30,25 @@ public class View extends Zero implements GLEventListener {
 		model = m;
 	}
 	
+	static Texture tex;
+	
+	/* static {
+	    try {
+	        System.out.println("Loading texture...");
+	        tex = TextureIO.newTexture(arg0, arg1, arg2);
+	        System.out.println("Texture estimated memory size = " + tex.getEstimatedMemorySize());
+	    } catch (IOException e) {
+	        e.printStackTrace();
+	    }
+	} */
+	
 	//fix these TODO
     private double t0 = System.currentTimeMillis();
     private double theta;
     private double s;
 
     //main shader shares
+    public static PMVMatrix mvp = new PMVMatrix();
     private static int shaderProgram;
     private static int vertShader;
     private static int fragShader;
@@ -43,20 +60,12 @@ public class View extends Zero implements GLEventListener {
 	    theta += (t1-t0)*0.005f;
 	    t0 = t1;
 	    s = Math.sin(theta);
-	
-	    float[] model_view_projection;
-	    float[] identity_matrix = {
-	        1.0f, 0.0f, 0.0f, 0.0f,
-	        0.0f, 1.0f, 0.0f, 0.0f,
-	        0.0f, 0.0f, 1.0f, 0.0f,
-	        0.0f, 0.0f, 0.0f, 1.0f,
-	    };
-	    model_view_projection =  translate(identity_matrix,0.0f,0.0f, -0.1f);
-	    model_view_projection =  rotate(model_view_projection,(float)30f*(float)s,1.0f,0.0f,1.0f);
-	
-	    // Send the final projection matrix to the vertex shader by
-	    // using the uniform location id obtained during the init part.
-	    gl.glUniformMatrix4fv(MVPM_location, 1, false, model_view_projection, 0);
+	    
+	    mvp.glLoadIdentity();
+	    mvp.glFrustumf(-1, 1, -1, 1, 0.1f, 1);
+	    mvp.glTranslatef(0.0f, 0.0f, -0.5f);
+	    mvp.glRotatef((float)3f*(float)s,1.0f,0.0f,2.0f);
+	    gl.glUniformMatrix4fv(MVPM_location, 1, false, mvp.glGetMatrixf());
     }
 
     public void init(GLAutoDrawable drawable) {
@@ -88,6 +97,11 @@ public class View extends Zero implements GLEventListener {
         gl.glBindAttribLocation(shaderProgram, 0, "attribute_Position");
         gl.glBindAttribLocation(shaderProgram, 1, "attribute_Color");
 
+        /*
+        tex.enable(gl);
+        tex.bind(gl);//TODO
+        */
+
         gl.glLinkProgram(shaderProgram);
 
         //Get a id number to the uniform_Projection matrix
@@ -116,11 +130,9 @@ public class View extends Zero implements GLEventListener {
         gl.glEnableVertexAttribArray(1);
         
         gl.glDrawElements(GL2ES2.GL_TRIANGLES, 3, GL2ES2.GL_UNSIGNED_INT, ib);
-
-        //gl.glDrawArrays(GL2ES2.GL_TRIANGLES, 0, 3); //Draw the vertices as triangle
         
         gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
-        gl.glDisableVertexAttribArray(1); // Allow release of vertex color memory		
+        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory		
     }
 
     public void dispose(GLAutoDrawable drawable){
@@ -219,55 +231,4 @@ public class View extends Zero implements GLEventListener {
 	        System.exit(1);
 	    }
 	}
-
-/* Introducing projection matrix helper functions
- *
- * OpenGL ES 2 vertex projection transformations gets applied inside the
- * vertex shader, all you have to do are to calculate and supply a projection matrix.
- *
- * Its recommended to use the com/jogamp/opengl/util/PMVMatrix.java
- * import com.jogamp.opengl.util.PMVMatrix;
- * To simplify all your projection model view matrix creation needs.
- *
- * These helpers here are based on PMVMatrix code and common linear
- * algebra for matrix multiplication, translate and rotations.
- */
-    private void glMultMatrixf(FloatBuffer a, FloatBuffer b, FloatBuffer d) {
-        final int aP = a.position();
-        final int bP = b.position();
-        final int dP = d.position();
-        for (int i = 0; i < 4; i++) {
-            final float ai0=a.get(aP+i+0*4),  ai1=a.get(aP+i+1*4),  ai2=a.get(aP+i+2*4),  ai3=a.get(aP+i+3*4);
-            d.put(dP+i+0*4 , ai0 * b.get(bP+0+0*4) + ai1 * b.get(bP+1+0*4) + ai2 * b.get(bP+2+0*4) + ai3 * b.get(bP+3+0*4) );
-            d.put(dP+i+1*4 , ai0 * b.get(bP+0+1*4) + ai1 * b.get(bP+1+1*4) + ai2 * b.get(bP+2+1*4) + ai3 * b.get(bP+3+1*4) );
-            d.put(dP+i+2*4 , ai0 * b.get(bP+0+2*4) + ai1 * b.get(bP+1+2*4) + ai2 * b.get(bP+2+2*4) + ai3 * b.get(bP+3+2*4) );
-            d.put(dP+i+3*4 , ai0 * b.get(bP+0+3*4) + ai1 * b.get(bP+1+3*4) + ai2 * b.get(bP+2+3*4) + ai3 * b.get(bP+3+3*4) );
-        }
-    }
-
-    private float[] multiply(float[] a,float[] b){
-        float[] tmp = new float[16];
-        glMultMatrixf(FloatBuffer.wrap(a),FloatBuffer.wrap(b),FloatBuffer.wrap(tmp));
-        return tmp;
-    }
-
-    private float[] translate(float[] m,float x,float y,float z){
-        float[] t = { 1.0f, 0.0f, 0.0f, 0.0f,
-                      0.0f, 1.0f, 0.0f, 0.0f,
-                      0.0f, 0.0f, 1.0f, 0.0f,
-                      x, y, z, 1.0f };
-        return multiply(m, t);
-    }
-
-    private float[] rotate(float[] m,float a,float x,float y,float z){
-        float s, c;
-        s = (float)Math.sin(Math.toRadians(a));
-        c = (float)Math.cos(Math.toRadians(a));
-        float[] r = {
-            x * x * (1.0f - c) + c,     y * x * (1.0f - c) + z * s, x * z * (1.0f - c) - y * s, 0.0f,
-            x * y * (1.0f - c) - z * s, y * y * (1.0f - c) + c,     y * z * (1.0f - c) + x * s, 0.0f,
-            x * z * (1.0f - c) + y * s, y * z * (1.0f - c) - x * s, z * z * (1.0f - c) + c,     0.0f,
-            0.0f, 0.0f, 0.0f, 1.0f };
-            return multiply(m, r);
-    }
 }
