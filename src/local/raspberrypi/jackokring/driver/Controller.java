@@ -19,6 +19,34 @@ public class Controller extends Zero implements Runnable {
 
 	public void keys(int keyCode) {
 		//general code thread
+		switch(keyCode) {
+		case KeyEvent.VK_ESCAPE :
+			WindowListener[] wl = window.getWindowListeners(); 
+			for(int i = 0; i < wl.length; i++)
+				wl[i].windowDestroyNotify(null);//hook
+			break;
+		case KeyEvent.VK_UP :
+			break;
+		case KeyEvent.VK_DOWN :
+			break;
+		case KeyEvent.VK_LEFT :
+			break;
+		case KeyEvent.VK_RIGHT :
+			break;
+		case KeyEvent.VK_Z : //JB1
+			break;
+		case KeyEvent.VK_X : //JB2
+			break;
+		case KeyEvent.VK_A : //JB3
+			break;
+		case KeyEvent.VK_S : //JB4
+			break;
+		case KeyEvent.VK_SPACE : //JB5
+			break;
+		case KeyEvent.VK_ENTER : //JB6
+			break;
+			default : break;
+		}
 	}
 	
 	public static void init() {
@@ -31,10 +59,9 @@ public class Controller extends Zero implements Runnable {
         GLCapabilities caps = new GLCapabilities(glp);
 
         window = GLWindow.create(caps);
-        window.setSize(640, 480);
+        window.setUndecorated(true);
+        window.setFullscreen(true);
         window.setVisible(true);
-        window.setTitle(Thread.currentThread().getName());
-        window.setUndecorated(false);
         window.setPointerVisible(true);
         
         animator = new Animator(window);

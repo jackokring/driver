@@ -59,6 +59,10 @@ public class View extends Zero implements GLEventListener {
 	    mvp.glRotatef((float)3f*(float)s,1.0f,0.0f,2.0f);
     }
     
+    void rotTrans() {
+    	//restore centric viewing context
+    }
+    
     void MVPDo() {
 	 	// Update variables used in animation
 	    double t1 = System.currentTimeMillis();
@@ -68,6 +72,7 @@ public class View extends Zero implements GLEventListener {
 	    
 	    mvp.glLoadIdentity();
 	    mvp.glFrustumf(-1, 1, -1, 1, 0.1f, 1);
+	    rotTrans();
 	    transRot();
 	    gl.glUniformMatrix4fv(MVPM_location, 1, false, mvp.glGetMatrixf());
     }
@@ -141,7 +146,7 @@ public class View extends Zero implements GLEventListener {
 
     public void dispose(GLAutoDrawable drawable){
     	if(gl == null) return;
-        System.out.println("cleanup, remember to release shaders");
+        System.out.println("cleanup, release shaders");
         gl.glUseProgram(0);
         gl.glDetachShader(shaderProgram, vertShader);
         gl.glDeleteShader(vertShader);
