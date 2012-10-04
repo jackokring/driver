@@ -8,6 +8,17 @@ import java.nio.*;
 
 public class View extends Zero implements GLEventListener {
 	
+	public float[] vertex = {	0.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Top
+            					-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Bottom Left
+            					1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.9f, 0.0f  //Bottom Right
+    							};
+	
+	FloatBuffer fbVertices = Buffers.newDirectFloatBuffer(vertex);
+	
+    public int[] order = { 0, 1, 2 };
+    
+    IntBuffer ib = Buffers.newDirectIntBuffer(order);
+	
 	Model model;
 	static GL2ES2 gl;//main context
 	
@@ -95,37 +106,14 @@ public class View extends Zero implements GLEventListener {
                 GL2ES2.GL_COLOR_BUFFER_BIT   |
                 GL2ES2.GL_DEPTH_BUFFER_BIT   );
         MVPDo();
-        float[] vertices = {  0.0f,  1.0f, 0.0f, //Top
-                             -1.0f, -1.0f, 0.0f, //Bottom Left
-                              1.0f, -1.0f, 0.0f  //Bottom Right
-                                              };
 
-
-        // Observe that the vertex data passed to glVertexAttribPointer must stay valid
-        // through the OpenGL rendering lifecycle.
-        // Therefore it is mandatory to allocate a NIO Direct buffer that stays pinned in memory
-        // and thus can not get moved by the java garbage collector.
-        // Also we need to keep a reference to the NIO Direct buffer around up until
-        // we call glDisableVertexAttribArray first then will it be safe to garbage collect the memory. 
-        // I will here use the com.jogamp.common.nio.Buffers to quickly wrap the array in a Direct NIO buffer.
-        FloatBuffer fbVertices = Buffers.newDirectFloatBuffer(vertices);
-
-        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 0, fbVertices);
+        fbVertices.position(0);
+        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
         gl.glEnableVertexAttribArray(0);
 
-        float[] colors = {    1.0f, 0.0f, 0.0f, 1.0f, //Top color (red)
-                              0.0f, 0.0f, 0.0f, 1.0f, //Bottom Left color (black)
-                              1.0f, 1.0f, 0.0f, 0.9f  //Bottom Right color (yellow) with 10% transparence
-                                                   };
-                                             
-        FloatBuffer fbColors = Buffers.newDirectFloatBuffer(colors);
-
-        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 0, fbColors);
+        fbVertices.position(3);
+        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
         gl.glEnableVertexAttribArray(1);
-        
-        int[] in = { 0, 1, 2 };
-        
-        IntBuffer ib = Buffers.newDirectIntBuffer(in);
         
         gl.glDrawElements(GL2ES2.GL_TRIANGLES, 3, GL2ES2.GL_UNSIGNED_INT, ib);
 
@@ -133,10 +121,6 @@ public class View extends Zero implements GLEventListener {
         
         gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
         gl.glDisableVertexAttribArray(1); // Allow release of vertex color memory		
-        // It is only safe to let the garbage collector collect the vertices and colors 
-        // NIO buffers data after first calling glDisableVertexAttribArray.
-        fbVertices = null;
-        fbColors = null;
     }
 
     public void dispose(GLAutoDrawable drawable){
