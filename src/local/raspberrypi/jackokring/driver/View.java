@@ -54,7 +54,12 @@ public class View extends Zero implements GLEventListener {
     private static int fragShader;
     static int MVPM_location;
     
-    public void MVPDo() {
+    public void transRot() {
+    	mvp.glTranslatef(0.0f, 0.0f, -0.5f);
+	    mvp.glRotatef((float)3f*(float)s,1.0f,0.0f,2.0f);
+    }
+    
+    void MVPDo() {
 	 	// Update variables used in animation
 	    double t1 = System.currentTimeMillis();
 	    theta += (t1-t0)*0.005f;
@@ -63,8 +68,7 @@ public class View extends Zero implements GLEventListener {
 	    
 	    mvp.glLoadIdentity();
 	    mvp.glFrustumf(-1, 1, -1, 1, 0.1f, 1);
-	    mvp.glTranslatef(0.0f, 0.0f, -0.5f);
-	    mvp.glRotatef((float)3f*(float)s,1.0f,0.0f,2.0f);
+	    transRot();
 	    gl.glUniformMatrix4fv(MVPM_location, 1, false, mvp.glGetMatrixf());
     }
 
