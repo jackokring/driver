@@ -166,7 +166,8 @@ public class View extends Zero implements GLEventListener {
 	    
 	    synchronized(View.class) {
 	    	if(canDraw == false) return;
-        	gl.glDrawElements(GL2ES2.GL_TRIANGLES, buff.limit(), GL2ES2.GL_UNSIGNED_INT, buff);
+	    	IntBuffer z = buff;//fixed change overlap atomic
+        	gl.glDrawElements(GL2ES2.GL_TRIANGLES, z.limit(), GL2ES2.GL_UNSIGNED_INT, z);
 	    }
     }
 
