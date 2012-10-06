@@ -12,22 +12,36 @@ import java.nio.*;
 
 public class View extends Zero implements GLEventListener {
 	
-	public float[] vertex = {	0.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Top
+	public static float[] vertex = {	0.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Top
             					-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Bottom Left
             					1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.9f, 0.0f  //Bottom Right
     							};
 	
-	FloatBuffer fbVertices = Buffers.newDirectFloatBuffer(vertex);
-	
-    public int[] order = { 0, 1, 2 };
-    
-    IntBuffer ib = Buffers.newDirectIntBuffer(order);
+	static FloatBuffer fbVertices;
+    public static int[][] order = {{ 0, 1, 2 }};
+    IntBuffer buff;//pattern
+    static IntBuffer[] ib;//all patterns
 	
 	Model model;
 	static GL2ES2 gl;//main context
+	static boolean canDraw = false;
+	
+	static {
+		if(gl != null) attribClose();
+		fbVertices = Buffers.newDirectFloatBuffer(vertex);
+		ib = new IntBuffer[order.length];
+		for(int i = 0; i < order.length; i++)
+			ib[i] = Buffers.newDirectIntBuffer(order[i]);
+		if(gl != null) attribOpen();
+	}
+	
+	public void set(int s) {
+		buff = ib[s];
+	}
 	
 	public View(Model m) {
 		model = m;
+		set(0);
 	}
 	
 	static Texture tex;
@@ -63,18 +77,22 @@ public class View extends Zero implements GLEventListener {
     	//restore centric viewing context
     }
     
-    void MVPDo() {
-	 	// Update variables used in animation
-	    double t1 = System.currentTimeMillis();
-	    theta += (t1-t0)*0.005f;
-	    t0 = t1;
-	    s = Math.sin(theta);
-	    
-	    mvp.glPopMatrix();
-	    mvp.glPushMatrix();
-	    rotTrans();
-	    transRot();
-	    gl.glUniformMatrix4fv(MVPM_location, 1, false, mvp.glGetMatrixf());
+    static synchronized void attribOpen() {
+    	//pos
+    	fbVertices.position(0);
+        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
+        gl.glEnableVertexAttribArray(0);
+        //color
+        fbVertices.position(3);
+        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
+        gl.glEnableVertexAttribArray(1);
+        canDraw = true;
+    }
+    
+    static synchronized void attribClose() {
+    	canDraw = false;
+    	gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
+        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory
     }
 
     public void init(GLAutoDrawable drawable) {
@@ -119,14 +137,8 @@ public class View extends Zero implements GLEventListener {
         
         // Use the shaderProgram that got linked during the init part.
         gl.glUseProgram(shaderProgram);
-        
-        fbVertices.position(0);
-        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
-        gl.glEnableVertexAttribArray(0);
-
-        fbVertices.position(3);
-        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
-        gl.glEnableVertexAttribArray(1);
+   
+        attribOpen();
         
         mvp.glLoadIdentity();
 	    mvp.glFrustumf(-1, 1, -1, 1, 0.1f, 100);
@@ -136,20 +148,32 @@ public class View extends Zero implements GLEventListener {
     public void reshape(GLAutoDrawable drawable, int x, int y, int w, int h) { }
 
     public void display(GLAutoDrawable drawable) {
-        
         gl.glClear(GL2ES2.GL_STENCIL_BUFFER_BIT |
                 GL2ES2.GL_COLOR_BUFFER_BIT   |
                 GL2ES2.GL_DEPTH_BUFFER_BIT   );
-        MVPDo();
         
-        gl.glDrawElements(GL2ES2.GL_TRIANGLES, 3, GL2ES2.GL_UNSIGNED_INT, ib);		
+        // Update variables used in animation TODO
+	    double t1 = System.currentTimeMillis();
+	    theta += (t1-t0)*0.005f;
+	    t0 = t1;
+	    s = Math.sin(theta);
+	    
+	    mvp.glPopMatrix();
+	    mvp.glPushMatrix();
+	    rotTrans();
+	    transRot();
+	    gl.glUniformMatrix4fv(MVPM_location, 1, false, mvp.glGetMatrixf());
+	    
+	    synchronized(View.class) {
+	    	if(canDraw == false) return;
+        	gl.glDrawElements(GL2ES2.GL_TRIANGLES, buff.limit(), GL2ES2.GL_UNSIGNED_INT, buff);
+	    }
     }
 
     public void dispose(GLAutoDrawable drawable){
     	if(gl == null) return;
         System.out.println("cleanup, release shaders");
-        gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
-        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory
+        attribClose();
         gl.glUseProgram(0);
         gl.glDetachShader(shaderProgram, vertShader);
         gl.glDeleteShader(vertShader);
