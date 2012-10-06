@@ -55,7 +55,7 @@ public class View extends Zero implements GLEventListener {
     static int MVPM_location;
     
     public void transRot() {
-    	mvp.glTranslatef(0.0f, 0.0f, -0.5f);
+    	mvp.glTranslatef(0.0f, 10f, -10f);
 	    mvp.glRotatef((float)3f*(float)s,1.0f,0.0f,2.0f);
     }
     
@@ -70,8 +70,8 @@ public class View extends Zero implements GLEventListener {
 	    t0 = t1;
 	    s = Math.sin(theta);
 	    
-	    mvp.glLoadIdentity();
-	    mvp.glFrustumf(-1, 1, -1, 1, 0.1f, 1);
+	    mvp.glPopMatrix();
+	    mvp.glPushMatrix();
 	    rotTrans();
 	    transRot();
 	    gl.glUniformMatrix4fv(MVPM_location, 1, false, mvp.glGetMatrixf());
@@ -119,6 +119,18 @@ public class View extends Zero implements GLEventListener {
         
         // Use the shaderProgram that got linked during the init part.
         gl.glUseProgram(shaderProgram);
+        
+        fbVertices.position(0);
+        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
+        gl.glEnableVertexAttribArray(0);
+
+        fbVertices.position(3);
+        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
+        gl.glEnableVertexAttribArray(1);
+        
+        mvp.glLoadIdentity();
+	    mvp.glFrustumf(-1, 1, -1, 1, 0.1f, 100);
+	    mvp.glPushMatrix();
     }
 
     public void reshape(GLAutoDrawable drawable, int x, int y, int w, int h) { }
@@ -129,24 +141,15 @@ public class View extends Zero implements GLEventListener {
                 GL2ES2.GL_COLOR_BUFFER_BIT   |
                 GL2ES2.GL_DEPTH_BUFFER_BIT   );
         MVPDo();
-
-        fbVertices.position(0);
-        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
-        gl.glEnableVertexAttribArray(0);
-
-        fbVertices.position(3);
-        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
-        gl.glEnableVertexAttribArray(1);
         
-        gl.glDrawElements(GL2ES2.GL_TRIANGLES, 3, GL2ES2.GL_UNSIGNED_INT, ib);
-        
-        gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
-        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory		
+        gl.glDrawElements(GL2ES2.GL_TRIANGLES, 3, GL2ES2.GL_UNSIGNED_INT, ib);		
     }
 
     public void dispose(GLAutoDrawable drawable){
     	if(gl == null) return;
         System.out.println("cleanup, release shaders");
+        gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
+        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory
         gl.glUseProgram(0);
         gl.glDetachShader(shaderProgram, vertShader);
         gl.glDeleteShader(vertShader);

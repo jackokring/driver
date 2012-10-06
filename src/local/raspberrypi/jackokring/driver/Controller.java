@@ -85,9 +85,14 @@ public class Controller extends Zero implements Runnable {
         });
 	}
 	
+	public void update() {
+		//allow pausing ...
+		view.model.update();
+	}
+	
 	public void run() {
 		while(self == this) {
-			view.model.update();
+			update();
 			Thread.yield();
 		}
 		window.removeGLEventListener(view);
