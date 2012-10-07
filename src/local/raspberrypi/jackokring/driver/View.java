@@ -14,7 +14,7 @@ public class View extends Zero implements GLEventListener {
 	
 	static float[] vertex;
 	static FloatBuffer fbVertices;
-    public static int[][] order = {{ 0, 1, 2 }};
+    public static int[][] order;
     IntBuffer buff;//pattern
     static IntBuffer[] ib;//all patterns
 	
@@ -23,6 +23,7 @@ public class View extends Zero implements GLEventListener {
 	static boolean canDraw = false;
 	
 	static {
+		order = readAsInt("local/raspberrypi/jackokring/driver/literals/vertexSet");
 		vertex = readAsFloat("local/raspberrypi/jackokring/driver/literals/vertexList");
 		attribClose();
 		fbVertices = Buffers.newDirectFloatBuffer(vertex);
@@ -66,7 +67,7 @@ public class View extends Zero implements GLEventListener {
     static int MVPM_location;
     
     public void transRot() {
-    	mvp.glTranslatef(0.0f, 10f, -10f);
+    	mvp.glTranslatef(0.0f, 10f, -2f);
 	    mvp.glRotatef((float)3f*(float)s,1.0f,0.0f,2.0f);
     }
     
@@ -239,9 +240,22 @@ public class View extends Zero implements GLEventListener {
 	public static float[] readAsFloat(String name) {
 		String[] in = readAsString(name).split(",");
 		float[] fl = new float[lineCount * 8];
-		if(fl.length < in.length) System.err.print("Vertex count warning./n");
+		if(fl.length < in.length) System.err.print("Vertex count warning.\n");
 		for(int i = 0; i < in.length; i++) 
 			fl[i] = Float.parseFloat(in[i].trim());
 		return fl;
+	}
+	
+	public static int[][] readAsInt(String name) {
+		String[] in = readAsString(name).split("\n");
+		int[][] val = new int[lineCount][];
+		String[] inPart;
+		for(int j = 0; j < in.length; j++) {
+			inPart = in[j].split(",");
+			val[j] = new int[inPart.length];
+			for(int i = 0; i < inPart.length; i++) 
+				val[j][i] = Integer.parseInt(inPart[i].trim());
+		}
+		return val;
 	}
 }
