@@ -7,16 +7,12 @@ import com.jogamp.opengl.util.PMVMatrix;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.TextureIO;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.*;
 
 public class View extends Zero implements GLEventListener {
 	
-	public static float[] vertex = {	0.0f,  1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Top
-            					-1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f,//Bottom Left
-            					1.0f, -1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.9f, 0.0f  //Bottom Right
-    							};
-	
+	static float[] vertex;
 	static FloatBuffer fbVertices;
     public static int[][] order = {{ 0, 1, 2 }};
     IntBuffer buff;//pattern
@@ -27,12 +23,13 @@ public class View extends Zero implements GLEventListener {
 	static boolean canDraw = false;
 	
 	static {
-		if(gl != null) attribClose();
+		vertex = readAsFloat("local/raspberrypi/jackokring/driver/literals/vertexList");
+		attribClose();
 		fbVertices = Buffers.newDirectFloatBuffer(vertex);
 		ib = new IntBuffer[order.length];
 		for(int i = 0; i < order.length; i++)
 			ib[i] = Buffers.newDirectIntBuffer(order[i]);
-		if(gl != null) attribOpen();
+		attribOpen();
 	}
 	
 	public void set(int s) {
@@ -78,21 +75,26 @@ public class View extends Zero implements GLEventListener {
     }
     
     static synchronized void attribOpen() {
-    	//pos
-    	fbVertices.position(0);
-        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
-        gl.glEnableVertexAttribArray(0);
-        //color
-        fbVertices.position(3);
-        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
-        gl.glEnableVertexAttribArray(1);
-        canDraw = true;
+    	try {
+	    	//pos
+	    	fbVertices.position(0);
+	        gl.glVertexAttribPointer(0, 3, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
+	        gl.glEnableVertexAttribArray(0);
+	        //color
+	        fbVertices.position(3);
+	        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
+	        gl.glEnableVertexAttribArray(1);
+	        canDraw = true;
+    	} catch(Exception e) { 	}
     }
     
     static synchronized void attribClose() {
-    	canDraw = false;
-    	gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
-        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory
+    	try {
+	    	canDraw = false;
+	    	gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
+	        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory
+
+    	} catch(Exception e) {	}
     }
 
     public void init(GLAutoDrawable drawable) {
@@ -184,67 +186,9 @@ public class View extends Zero implements GLEventListener {
         gl = null;
     }
     
-	static final String vertexShader =
-	// For GLSL 1 and 1.1 code i highly recommend to not include a 
-	// GLSL ES language #version line, GLSL ES section 3.4
-	// Many GPU drivers refuse to compile the shader if #version is different from
-	// the drivers internal GLSL version.
-	"#ifdef GL_ES \n" +
-	"precision mediump float; \n" + // Precision Qualifiers
-	"precision mediump int; \n" +   // GLSL ES section 4.5.2
-	"#endif \n" +
-	
-	"uniform mat4    uniform_Projection; \n" + // Incomming data used by
-	"attribute vec4  attribute_Position; \n" + // the vertex shader
-	"attribute vec4  attribute_Color; \n" +    // uniform and attributes
-	
-	"varying vec4    varying_Color; \n" + // Outgoing varying data
-	                                      // sent to the fragment shader
-	"void main(void) \n" +
-	"{ \n" +
-	"  varying_Color = attribute_Color; \n" +
-	"  gl_Position = uniform_Projection * attribute_Position; \n" +
-	"} ";
-	
-	/* Introducing the OpenGL ES 2 Fragment shader
-	 *
-	 * The main loop of the fragment shader gets executed for each visible
-	 * pixel fragment on the render buffer.
-	 *
-	 *       vertex-> *
-	 *      (0,1,-1) /f\
-	 *              /ffF\ <- This fragment F gl_FragCoord get interpolated
-	 *             /fffff\                   to (0.25,0.25,-1) based on the
-	 *   vertex-> *fffffff* <-vertex         three vertex gl_Position.
-	 *  (-1,-1,-1)           (1,-1,-1)
-	 *
-	 *
-	 * All incomming "varying" and gl_FragCoord data to the fragment shader
-	 * gets interpolated based on the vertex positions.
-	 *
-	 * The fragment shader produce and store the final color data output into
-	 * gl_FragColor.
-	 *
-	 * Is up to you to set the final colors and calculate lightning here based on
-	 * supplied position, color and normal data.
-	 *
-	 * The whole fragment shader program are a String containing GLSL ES language
-	 * http://www.khronos.org/registry/gles/specs/2.0/GLSL_ES_Specification_1.0.17.pdf
-	 * sent to the GPU driver for compilation.
-	 */
-	static final String fragmentShader =
-	"#ifdef GL_ES \n" +
-	"precision mediump float; \n" +
-	"precision mediump int; \n" +
-	"#endif \n" +
-	
-	"varying   vec4    varying_Color; \n" + //incomming varying data to the
-	                                        //frament shader
-	                                        //sent from the vertex shader
-	"void main (void) \n" +
-	"{ \n" +
-	"  gl_FragColor = varying_Color; \n" +
-	"} ";
+	static final String vertexShader = readAsString("local/raspberrypi/jackokring/driver/literals/vertex.c");
+   
+	static final String fragmentShader = readAsString("local/raspberrypi/jackokring/driver/literals/fragment.c");
 	
 	private void compile(String shader, int id) {
 		//Compile the vertexShader String into a program.
@@ -267,5 +211,37 @@ public class View extends Zero implements GLEventListener {
 	        System.err.println("Error compiling shader "+id+": " + new String(log));
 	        System.exit(1);
 	    }
+	}
+	
+	private static int lineCount;
+	
+	public static String readAsString(String name) {
+        StringBuilder source = new StringBuilder();
+        lineCount = 0;
+        BufferedReader reader;
+        try{
+        	InputStream in = View.class.getClassLoader().getResourceAsStream(name);
+            reader = new BufferedReader(new InputStreamReader(in,"UTF-8"));
+            String line;
+            while((line = reader.readLine()) != null) {
+                source.append(line).append('\n');
+                lineCount++;
+            }
+            reader.close();
+            in.close();
+        } catch(Exception exc) {
+        	exc.printStackTrace(System.err);
+        }
+        
+        return source.toString();
+    }
+	
+	public static float[] readAsFloat(String name) {
+		String[] in = readAsString(name).split(",");
+		float[] fl = new float[lineCount * 8];
+		if(fl.length < in.length) System.err.print("Vertex count warning./n");
+		for(int i = 0; i < in.length; i++) 
+			fl[i] = Float.parseFloat(in[i].trim());
+		return fl;
 	}
 }
