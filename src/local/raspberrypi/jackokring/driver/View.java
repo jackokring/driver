@@ -225,6 +225,7 @@ public class View extends Zero implements GLEventListener {
             reader = new BufferedReader(new InputStreamReader(in,"UTF-8"));
             String line;
             while((line = reader.readLine()) != null) {
+            	if(line.charAt(0) == '#') continue;//comment
                 source.append(line).append('\n');
                 lineCount++;
             }
@@ -247,7 +248,7 @@ public class View extends Zero implements GLEventListener {
 	}
 	
 	public static int[][] readAsInt(String name) {
-		String[] in = readAsString(name).split("\n");
+		String[] in = readAsString(name).split(":");
 		int[][] val = new int[lineCount][];
 		String[] inPart;
 		for(int j = 0; j < in.length; j++) {
