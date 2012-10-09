@@ -21,10 +21,11 @@ public class View extends Zero implements GLEventListener {
 	Model model;
 	static GL2ES2 gl;//main context
 	static boolean canDraw = false;
+	final static String literals = "local/raspberrypi/jackokring/driver/literals/";
 	
 	static {
-		order = readAsInt("local/raspberrypi/jackokring/driver/literals/vertexSet");
-		vertex = readAsFloat("local/raspberrypi/jackokring/driver/literals/vertexList");
+		order = readAsInt("vertexSet");
+		vertex = readAsFloat("vertexList");
 		attribClose();
 		fbVertices = Buffers.newDirectFloatBuffer(vertex);
 		ib = new IntBuffer[order.length];
@@ -44,16 +45,6 @@ public class View extends Zero implements GLEventListener {
 	
 	static Texture tex;
 	
-	/* static {
-	    try {
-	        System.out.println("Loading texture...");
-	        tex = TextureIO.newTexture(arg0, arg1, arg2);
-	        System.out.println("Texture estimated memory size = " + tex.getEstimatedMemorySize());
-	    } catch (IOException e) {
-	        e.printStackTrace();
-	    }
-	} */
-	
 	//fix these TODO
     private double t0 = System.currentTimeMillis();
     private double theta;
@@ -64,7 +55,7 @@ public class View extends Zero implements GLEventListener {
     private static int shaderProgram;
     private static int vertShader;
     private static int fragShader;
-    static int MVPM_location;
+    static int MVPM_location, textureID;
     
     public void transRot() {
     	mvp.glTranslatef(0.0f, 10f, -2f);
@@ -85,6 +76,10 @@ public class View extends Zero implements GLEventListener {
 	        fbVertices.position(3);
 	        gl.glVertexAttribPointer(1, 4, GL2ES2.GL_FLOAT, false, 8 * 4, fbVertices);
 	        gl.glEnableVertexAttribArray(1);
+	        //texture
+	        gl.glActiveTexture(GL.GL_TEXTURE0);
+	        tex.enable(gl);
+	        tex.bind(gl);
 	        canDraw = true;
     	} catch(Exception e) { 	}
     }
@@ -94,7 +89,7 @@ public class View extends Zero implements GLEventListener {
 	    	canDraw = false;
 	    	gl.glDisableVertexAttribArray(0); // Allow release of vertex position memory
 	        gl.glDisableVertexAttribArray(1); // Allow release of vertex colour memory
-
+	        tex.disable(gl);
     	} catch(Exception e) {	}
     }
 
@@ -126,17 +121,23 @@ public class View extends Zero implements GLEventListener {
         //the vertex shader.
         gl.glBindAttribLocation(shaderProgram, 0, "attribute_Position");
         gl.glBindAttribLocation(shaderProgram, 1, "attribute_Color");
-
-        /*
-        tex.enable(gl);
-        tex.bind(gl);//TODO
-        */
+        
+        try {
+			tex = TextureIO.newTexture(
+					View.class.getClassLoader().getResourceAsStream(literals + "font.png"),
+					true, TextureIO.PNG);
+		} catch (Exception e) {
+			e.printStackTrace(System.err);
+		}
 
         gl.glLinkProgram(shaderProgram);
 
         //Get a id number to the uniform_Projection matrix
         //so that we can update it.
         MVPM_location = gl.glGetUniformLocation(shaderProgram, "uniform_Projection");
+        
+        textureID = gl.glGetUniformLocation(shaderProgram, "uniform_Texture");
+        gl.glUniform1i(textureID, 0);//sets texture?
         
         // Use the shaderProgram that got linked during the init part.
         gl.glUseProgram(shaderProgram);
@@ -184,12 +185,13 @@ public class View extends Zero implements GLEventListener {
         gl.glDetachShader(shaderProgram, fragShader);
         gl.glDeleteShader(fragShader);
         gl.glDeleteProgram(shaderProgram);
+        tex.destroy(gl);
         gl = null;
     }
     
-	static final String vertexShader = readAsString("local/raspberrypi/jackokring/driver/literals/vertex.c");
+	static final String vertexShader = readAsString("vertex.c");
    
-	static final String fragmentShader = readAsString("local/raspberrypi/jackokring/driver/literals/fragment.c");
+	static final String fragmentShader = readAsString("fragment.c");
 	
 	private void compile(String shader, int id) {
 		//Compile the vertexShader String into a program.
@@ -221,13 +223,13 @@ public class View extends Zero implements GLEventListener {
         lineCount = 0;
         BufferedReader reader;
         try{
+        	System.out.print((name = literals + name) + "\n");
         	InputStream in = View.class.getClassLoader().getResourceAsStream(name);
             reader = new BufferedReader(new InputStreamReader(in,"UTF-8"));
             String line;
             while((line = reader.readLine()) != null) {
-            	if(line.charAt(0) == '#') continue;//comment
-                source.append(line).append('\n');
-                lineCount++;
+            	source.append(line).append('\n');
+            	lineCount++;
             }
             reader.close();
             in.close();
@@ -248,7 +250,7 @@ public class View extends Zero implements GLEventListener {
 	}
 	
 	public static int[][] readAsInt(String name) {
-		String[] in = readAsString(name).split(":");
+		String[] in = readAsString(name).split("\\:");
 		int[][] val = new int[lineCount][];
 		String[] inPart;
 		for(int j = 0; j < in.length; j++) {
